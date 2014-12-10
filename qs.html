@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+<body>
+<style>
+line {
+  stroke: #000;
+  stroke-width: 1.5px;
+}
+</style>
+
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script>
+
+var margin = {top: 230, right: 30, bottom: 230, left: 30},
+    width = 960 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+var n = 240,
+    index = d3.range(n),
+    data = shuffle(index.slice());
+
+var x = d3.scale.ordinal().domain(index).rangePoints([0, width]),
+    a = d3.scale.linear().domain([0, n - 1]).range([-Math.PI / 4, Math.PI / 4]);
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + (margin.top + height) + ")");
+
+var line = svg.selectAll("line")
+    .data(data)
+  .enter().append("line")
+    .attr("index", function(d, i) { return "i" + i; })
+    .attr("x2", function(d) { return height * Math.sin(a(d)); })
+    .attr("y2", function(d) { return -height * Math.cos(a(d)); })
+    .attr("transform", function(d, i) { return "translate(" + x(i) + ")"; });
+
+var active = svg.append("line");
+
+// Fisher–Yates shuffle
+function shuffle(array) {
+  var i = array.length, j, t;
+  while (--i > 0) {
+    j = ~~(Math.random() * (i + 1));
+    t = array[j];
+    array[j] = array[i];
+    array[i] = t;
+  }
+  return array;
+}
+
+setInterval(function step() {
+  //Take first value from queue
+  var action = queue.shift();
+  if (action) switch (action.type) {
+    case "partition": {
+      line.style("stroke", function(d, i) { return i == action.pivot ? "red" : null; });
+      active.attr("x1",function(d,i) { return x(action.st); })
+            .attr("y1",function(d,i) { return 20; })
+            .attr("x2",function(d,i) { return x(action.end); })
+            .attr("y2",function(d,i) { return 20; })
+            .attr("stroke", "red");
+      step();
+      break;
+    }
+    case "swap": {
+      var t = line[0][action.i];
+      line[0][action.i] = line[0][action.j];
+      line[0][action.j] = t;
+      line.attr("transform", function(d, i) { return "translate(" + x(i) + ")"; });
+      break;
+    }
+  }
+}, 20);
+
+var queue = [];
+
+var ws = new WebSocket("ws://localhost:9998");
+ws.onopen = function()
+{    // Web Socket is connected, send data using send()
+    ws.send(JSON.stringify(data));
+    //alert("Message is sent...");
+};
+ws.onmessage = function (evt) 
+{
+    var msg = JSON.parse(evt.data);
+    queue.push(msg);
+
+};
+ws.onclose = function()
+{
+    console.log("Connection is closed..."); 
+};
+
+
+</script>
+</body>
+</html>
