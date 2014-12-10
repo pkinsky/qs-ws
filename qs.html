@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
 <html>
+<head>
+<title>haskell-quicksort-heap</title>
+</head>
 <body>
 <style>
 line {
@@ -8,6 +11,11 @@ line {
   stroke-width: 1.5px;
 }
 </style>
+
+<div id="svg-holder" style="margin:0 auto; text-align: center;"></div>
+Runs quicksort by repeatedly partitioning the smallest available interval. 
+<br>
+<a href="https://github.com/pkinsky/qs-ws">Github Repo</a>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.2/d3.min.js"></script>
 <script>
@@ -23,7 +31,7 @@ var n = 240,
 var x = d3.scale.ordinal().domain(index).rangePoints([0, width]),
     a = d3.scale.linear().domain([0, n - 1]).range([-Math.PI / 4, Math.PI / 4]);
 
-var svg = d3.select("body").append("svg")
+var svg = d3.select("#svg-holder").append("svg")
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom)
   .append("g")
@@ -88,11 +96,10 @@ new_uri += loc.pathname;
 
 var ws = new WebSocket(new_uri);
 ws.onopen = function()
-{    // Web Socket is connected, send data using send()
+{
     ws.send(JSON.stringify(data));
-    //alert("Message is sent...");
 };
-ws.onmessage = function (evt) 
+ws.onmessage = function (evt)
 {
     var msg = JSON.parse(evt.data);
     queue.push(msg);
