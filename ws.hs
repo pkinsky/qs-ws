@@ -17,11 +17,11 @@ import Network.HTTP.Types as HTTP
 import Blaze.ByteString.Builder as Blaze
 import qualified Data.ByteString.UTF8 as BU
 import Data.Monoid
-
+import System.Environment as Env
 
 main :: IO ()
 main = do
-    let port = 9998
+    port <- fmap read $ Env.getEnv "PORT"
     putStrLn $ "Listening on port " ++ show port
     page <- readFile "qs.html"
     let app req respond = respond $ wrap page
@@ -30,20 +30,6 @@ main = do
 
 
 wrap page = responseBuilder HTTP.status200 [ ("Content-Type", "text/html") ] $ Blaze.copyByteString $ BU.fromString page
-
-{-
-main :: IO ()
-main = print "starting" >> WS.runServer "0.0.0.0" 9998 app
-{-
-  let port = 3000
-    putStrLn $ "Listening on port " ++ show port
-    run port app
--}
-app :: WS.PendingConnection -> IO ()
-app pending = do conn <- WS.acceptRequest pending
-                 meow conn
-
--}
 
 ws :: WS.ServerApp
 ws pending = do conn <- WS.acceptRequest pending
