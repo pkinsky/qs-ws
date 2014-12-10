@@ -77,7 +77,16 @@ setInterval(function step() {
 
 var queue = [];
 
-var ws = new WebSocket("ws://localhost:9998");
+var loc = window.location, new_uri;
+if (loc.protocol === "https:") {
+    new_uri = "wss:";
+} else {
+    new_uri = "ws:";
+}
+new_uri += "//" + loc.host;
+new_uri += loc.pathname;
+
+var ws = new WebSocket(new_uri);
 ws.onopen = function()
 {    // Web Socket is connected, send data using send()
     ws.send(JSON.stringify(data));
