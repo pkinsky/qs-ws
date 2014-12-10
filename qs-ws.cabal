@@ -20,7 +20,7 @@ executable qs-ws
   -- other-modules:       
   -- other-extensions:    
   build-depends:       
-    base >=4.7 && <4.8,
+    base >3 && <5,
     heap,
     websockets,
     array,

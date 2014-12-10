@@ -1,53 +1,57 @@
 {-# LANGUAGE OverloadedStrings #-}
-import Control.Monad      (forever)
-import qualified Data.Text          as T
-import qualified Network.WebSockets as WS
-import Network.Wai.Handler.WebSockets as WWS
-import Data.Text (Text)
-import qualified Data.Text.IO as T
+import qualified Data.Text            as T
+import qualified Blaze.ByteString.Builder       as Blaze
 import Control.Exception (finally)
 import Data.Array.IO
+import qualified Data.ByteString.UTF8 as BU
 import Data.Heap (singleton, MinPrioHeap, view, insert)
-import Control.Concurrent as CC
-import Text.Read as TR
-
+import qualified Control.Concurrent as CC
+import qualified Text.Read as TR
 import Network.Wai
 import Network.Wai.Handler.Warp
-import Network.HTTP.Types as HTTP
-import Blaze.ByteString.Builder as Blaze
-import qualified Data.ByteString.UTF8 as BU
-import Data.Monoid
-import System.Environment as Env
+import qualified Network.HTTP.Types as HTTP
+import qualified Network.WebSockets as WS
+import qualified Network.Wai.Handler.WebSockets as WWS
+import qualified System.Environment as Env
 
 main :: IO ()
 main = do
-    port <- fmap read $ Env.getEnv "PORT"
+    env <- Env.getEnvironment
+    let port = maybe 9000 read $ lookup "PORT" env
     putStrLn $ "Listening on port " ++ show port
     page <- readFile "qs.html"
-    let app req respond = respond $ wrap page
+    let app _ respond = respond $ wrap page
         app' = WWS.websocketsOr WS.defaultConnectionOptions ws app
     run port app'
 
 
+wrap :: String -> Response
 wrap page = responseBuilder HTTP.status200 [ ("Content-Type", "text/html") ] $ Blaze.copyByteString $ BU.fromString page
 
 ws :: WS.ServerApp
 ws pending = do conn <- WS.acceptRequest pending
+                print ("accept connection: " ++ host pending)
                 msg <- WS.receiveData conn
                 case TR.readMaybe (T.unpack msg)  of
-                  Just(xs) ->
-                    do arr <- mkArr xs
-                       let disconnect = print "disconnect"
-                           log t = WS.sendTextData conn (T.pack t)
-                       flip finally disconnect $ qs log arr
+                  Just xs ->
+                    do arr <- newListArray (0, length xs - 1) xs
+                       let disconnect = print ("disconnect: " ++ host pending) -- todo: deallocate array manually if possible
+                           pushWS t = WS.sendTextData conn (T.pack t)
+                       flip finally disconnect $ qs pushWS arr
                   Nothing -> return ()
 
+host :: WS.PendingConnection -> String
+host pending = maybe "???" BU.toString $ lookup "Host" headers
+  where headers = WS.requestHeaders $ WS.pendingRequest pending
 
-actionP pivot st end = "{\"type\": \"partition\", \"pivot\": " ++ show pivot ++ ", \"st\": " ++ show st ++ ", \"end\": " ++ show end ++ "}"
-actionS i j = "{\"type\": \"swap\", \"i\": " ++ show i ++ ", \"j\": " ++ show j ++ "}"
+type Json = String
 
-mkArr :: [Int] -> IO (IOArray Int Int)
-mkArr xs = newListArray (0, length xs - 1) xs
+pivotJson :: Int -> Int -> Int -> Json
+pivotJson pivot st end = "{\"type\": \"partition\", \"pivot\": " ++ show pivot ++ ", \"st\": " ++ show st ++ ", \"end\": " ++ show end ++ "}"
+
+swapJson :: Int -> Int -> Json
+swapJson i j = "{\"type\": \"swap\", \"i\": " ++ show i ++ ", \"j\": " ++ show j ++ "}"
+
 
 type Interval = (Int, Int)
 type PrintF = String -> IO ()
@@ -59,20 +63,19 @@ qs pf arr = do (st, end) <- getBounds arr
   where loop h = case view h of
                    (Just ((_, interval), h')) ->
                      do intervals <- partition pf arr interval
-                        let insert' h (a,b) = insert (b-a, (a,b)) h
-                            h'' = foldl insert' h' intervals
+                        let h'' = foldl insert' h' intervals
                         loop h''
                    Nothing -> return ()
-
+        insert' h (a,b) = insert (b-a, (a,b)) h
 
 partition :: PrintF -> IOArray Int Int -> Interval -> IO [Interval]
 partition pf arr (st, end) =
     do pivot <- readArray arr st
-       pf $ actionP st st end
+       pf $ pivotJson st st end
        loop (st + 1) (st + 1) pivot
   where swap i0 i1 | i0 /= i1 = 
           do CC.threadDelay (20 * 1000)
-             pf $ actionS i0 i1
+             pf $ swapJson i0 i1
              v0 <- readArray arr i0
              v1 <- readArray arr i1
              writeArray arr i0 v1
@@ -86,15 +89,3 @@ partition pf arr (st, end) =
                    | otherwise =
           do swap st (j - 1)
              return $ filter (uncurry (<)) [(st, j - 2), (j, end)]
-
-
-printA :: IOArray Int Int -> IO String
-printA a = getBounds a >>= printA' a
-
-printA' :: IOArray Int Int -> Interval -> IO String
-printA' a (st,end) = 
-           do xs <- tl a st end 
-              return $ show xs
-
-tl:: IOArray Int Int -> Int -> Int -> IO [Int]
-tl arr a b = mapM (readArray arr) [a..b]
