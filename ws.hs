@@ -10,14 +10,47 @@ import Data.Heap (singleton, MinPrioHeap, view, insert)
 import Control.Concurrent as CC
 import Text.Read as TR
 
+import Network.Wai
+import Network.Wai.Handler.Warp
+import Network.HTTP.Types as HTTP
+import Blaze.ByteString.Builder as Blaze
+import qualified Data.ByteString.UTF8 as BU
+import Data.Monoid
+
+
+main :: IO ()
+main = do
+    let port = 3000
+    putStrLn $ "Listening on port " ++ show port
+    page <- readFile "qs.html"
+    run port (app page)
+
+app :: String -> Request -> (Response -> IO ResponseReceived) -> IO ResponseReceived
+app page req respond = respond $
+    case pathInfo req of
+        x -> wrap page
+
+{-
+yay = responseBuilder status200 [ ("Content-Type", "text/plain") ] $ mconcat $ map copyByteString
+    [ "yay" ]
+-}
+
+--wrap :: String -> HTTP.Status -> ResponseHeaders -> Blaze.Builder -> Response
+wrap page = responseBuilder HTTP.status200 [ ("Content-Type", "text/html") ] $ Blaze.copyByteString $ BU.fromString page
+
+{-
 main :: IO ()
 main = print "starting" >> WS.runServer "0.0.0.0" 9998 app
-
+{-
+  let port = 3000
+    putStrLn $ "Listening on port " ++ show port
+    run port app
+-}
 app :: WS.PendingConnection -> IO ()
 app pending = do conn <- WS.acceptRequest pending
                  meow conn
 
-
+-}
 
 meow :: WS.Connection -> IO ()
 meow conn =  do msg <- WS.receiveData conn
