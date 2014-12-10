@@ -24,8 +24,8 @@ meow conn =  do msg <- WS.receiveData conn
                 case TR.readMaybe (T.unpack msg)  of
                   Just(xs) ->
                     do arr <- mkArr xs
-                       let disconnect = print "disconnecting" -- I guess there's no dealloc function function for IOArray
-                           log t = WS.sendTextData conn (T.pack t) >> CC.threadDelay (20 * 1000)
+                       let disconnect = print "disconnect"
+                           log t = WS.sendTextData conn (T.pack t)
                        flip finally disconnect $ qs log arr
                   Nothing -> return ()
 
@@ -58,7 +58,8 @@ partition pf arr (st, end) =
        pf $ actionP st st end
        loop (st + 1) (st + 1) pivot
   where swap i0 i1 | i0 /= i1 = 
-          do pf $ actionS i0 i1
+          do CC.threadDelay (20 * 1000)
+             pf $ actionS i0 i1
              v0 <- readArray arr i0
              v1 <- readArray arr i1
              writeArray arr i0 v1
