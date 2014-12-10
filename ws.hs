@@ -2,6 +2,7 @@
 import Control.Monad      (forever)
 import qualified Data.Text          as T
 import qualified Network.WebSockets as WS
+import Network.Wai.Handler.WebSockets as WWS
 import Data.Text (Text)
 import qualified Data.Text.IO as T
 import Control.Exception (finally)
@@ -20,22 +21,14 @@ import Data.Monoid
 
 main :: IO ()
 main = do
-    let port = 3000
+    let port = 9998
     putStrLn $ "Listening on port " ++ show port
     page <- readFile "qs.html"
-    run port (app page)
+    let app req respond = respond $ wrap page
+        app' = WWS.websocketsOr WS.defaultConnectionOptions ws app
+    run port app'
 
-app :: String -> Request -> (Response -> IO ResponseReceived) -> IO ResponseReceived
-app page req respond = respond $
-    case pathInfo req of
-        x -> wrap page
 
-{-
-yay = responseBuilder status200 [ ("Content-Type", "text/plain") ] $ mconcat $ map copyByteString
-    [ "yay" ]
--}
-
---wrap :: String -> HTTP.Status -> ResponseHeaders -> Blaze.Builder -> Response
 wrap page = responseBuilder HTTP.status200 [ ("Content-Type", "text/html") ] $ Blaze.copyByteString $ BU.fromString page
 
 {-
@@ -52,8 +45,9 @@ app pending = do conn <- WS.acceptRequest pending
 
 -}
 
-meow :: WS.Connection -> IO ()
-meow conn =  do msg <- WS.receiveData conn
+ws :: WS.ServerApp
+ws pending = do conn <- WS.acceptRequest pending
+                msg <- WS.receiveData conn
                 case TR.readMaybe (T.unpack msg)  of
                   Just(xs) ->
                     do arr <- mkArr xs
