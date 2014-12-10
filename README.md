@@ -1,5 +1,7 @@
 qs-ws
 =====
+Running on Heroku as [quicksort-heap](https://quicksort-heap.herokuapp.com).
+
 Runs quicksort, partitioning intervals on a smallest-available-interval-first basis. Inspired by <a href="http://bertrandmeyer.com/2014/12/07/lampsort/">this article</a>.
 
 The frontend uses D3.js to visualizes quicksort, using code adapted from this [quicksort visualization](http://bl.ocks.org/mbostock/1582075) by Mike Bostock.
